@@ -373,8 +373,8 @@ class UploadController extends Controller
             $im = $dstR;
             list($width, $height) = getimagesize($path);
             list($widthImage, $heightImage) = getimagesize($imgSrc);
-            $newwidth = $width * 100*$width / $widthImage /3;
-            $newheight = $height * 100*$height / $heightImage;
+            $newwidth = $widthImage / 3.5;
+            $newheight = $heightImage / 10;
 
 // Load
             $stampBigger = imagecreatetruecolor($newwidth, $newheight);
