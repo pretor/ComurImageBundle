@@ -27,14 +27,14 @@ class UploadController extends Controller
 
         $uploadUrl = $config['uploadConfig']['uploadUrl'];
         $uploadUrl = substr($uploadUrl, -strlen('/')) === '/' ? $uploadUrl : $uploadUrl . '/';
-        
+
         // We must use a streamed response because the UploadHandler echoes directly
         $response = new StreamedResponse();
-        
+
         $webDir = $config['uploadConfig']['webDir'];
         $webDir = substr($webDir, -strlen('/')) === '/' ? $webDir : $webDir . '/';
         $filename = sha1(uniqid(mt_rand(), true));
-        
+
         $thumbsDir = $this->container->getParameter('comur_image.thumbs_dir');
         $thumbSize = $this->container->getParameter('comur_image.media_lib_thumb_size');
 
@@ -89,7 +89,7 @@ class UploadController extends Controller
         $response->setCallback(function () use($handlerConfig, $errorMessages) {
             new UploadHandler($handlerConfig, true, $errorMessages);
         });
-        
+
         return $response->send();
     }
 
@@ -112,7 +112,7 @@ class UploadController extends Controller
         $tarH = (int) round($config['cropConfig']['minHeight']);
 
         //Issue 36
-        if($x < 0) 
+        if($x < 0)
         {
             $w = $w + $x;
             $x = 0;
@@ -165,7 +165,7 @@ class UploadController extends Controller
                 // $destH = $h;
                 list($destW, $destH) = $this->getMinResizeValues($w, $h, $tarW, $tarH);
             }
-            
+
         }
 
         $this->resizeCropImage($destSrc,$src,0,0,$x,$y,$destW,$destH,$w,$h);
@@ -195,12 +195,12 @@ class UploadController extends Controller
                 mkdir($thumbDir);
             }
 
-            
+
 
             foreach($thumbs as $thumb){
                 $maxW = $thumb['maxWidth'];
                 $maxH = $thumb['maxHeight'];
-                
+
                 if(!isset($thumb['forGallery']) && $maxW == $gThumbSize && $maxH == $gThumbSize){
                     $galleryThumbOk = true;
                 }
@@ -210,15 +210,15 @@ class UploadController extends Controller
 
                 $thumbName = $maxW.'x'.$maxH.'-'.$imageName;
                 $thumbSrc = $thumbDir . $thumbName;
-                $this->resizeCropImage($thumbSrc, $destSrc, 0, 0, 0, 0, $w, $h, $destW, $destH);
+                $this->resizeCropImage($thumbSrc, $destSrc, 0, 0, 0, 0, $w, $h, $destW, $destH, true);
                 if(isset($thumb['useAsFieldImage']) && $thumb['useAsFieldImage']){
                     $previewSrc = '/'.$config['uploadConfig']['webDir'] . '/' . $this->container->getParameter('comur_image.cropped_image_dir') . '/'. $this->container->getParameter('comur_image.thumbs_dir'). '/' . $thumbName;
                 }
             }
         }
 
-        return new Response(json_encode(array('success' => true, 
-            'filename'=>$this->container->getParameter('comur_image.cropped_image_dir').'/'.$imageName, 
+        return new Response(json_encode(array('success' => true,
+            'filename'=>$this->container->getParameter('comur_image.cropped_image_dir').'/'.$imageName,
             'previewSrc' => $previewSrc,
             'galleryThumb' => $this->container->getParameter('comur_image.cropped_image_dir') . '/' . $this->container->getParameter('comur_image.thumbs_dir').'/'.$gThumbSize.'x'.$gThumbSize.'-' .$imageName)));
     }
@@ -286,7 +286,7 @@ class UploadController extends Controller
         $files = array();
 
         $result['thumbsDir'] = $this->container->getParameter('comur_image.thumbs_dir');
-        
+
         if (!is_dir($request->request->get('dir'))) {
             mkdir($request->request->get('dir').'/', 0755, true);
         }
@@ -303,7 +303,7 @@ class UploadController extends Controller
     /**
      * Crops or resizes image and writes it on disk
      */
-    private function resizeCropImage($destSrc, $imgSrc, $destX, $destY, $srcX, $srcY, $destW, $destH, $srcW, $srcH)
+    private function resizeCropImage($destSrc, $imgSrc, $destX, $destY, $srcX, $srcY, $destW, $destH, $srcW, $srcH, $thumb = false)
     {
         $type = strtolower(pathinfo($imgSrc, PATHINFO_EXTENSION));
 
@@ -329,18 +329,18 @@ class UploadController extends Controller
         }
 
         $imgR = $srcFunc($imgSrc);
-        
+
         if(round($srcW/$srcH, 2) != round($destW/$destH, 2)){
             $destW = $srcW;
             $destH = $srcH;
         }
         $dstR = imagecreatetruecolor( $destW, $destH );
-        
+
         if($type == 'png'){
             imagealphablending( $dstR, false );
             imagesavealpha( $dstR, true );
         }
-        
+
         imagecopyresampled($dstR,$imgR,$destX,$destY,$srcX,$srcY,$destW,$destH,$srcW,$srcH);
 
         switch ($type) {
@@ -352,7 +352,53 @@ class UploadController extends Controller
                 imagesavealpha($dstR, true);
                 break;
         }
-        
+
+
+        // var_dump($dstR); die;
+
+        // File and new size
+//the original image has 800x600
+        // $path = 'images/picture.jpg';
+//the resize will be a percent of the original size
+        //$percent = 4;
+
+
+// Get new sizes
+
+        if(!$thumb){
+            // Load the watermark and the photo to apply the watermark to
+            $fileLocator = $this->get('file_locator');
+            $path = $fileLocator->locate('@AppmakerWebBundle/Resources/public/images/stamp.png');
+            $stamp = imagecreatefrompng($path);
+            $im = $dstR;
+            list($width, $height) = getimagesize($path);
+            list($widthImage, $heightImage) = getimagesize($imgSrc);
+            $newwidth = $width * 100*$width / $widthImage /3;
+            $newheight = $height * 100*$height / $heightImage;
+
+// Load
+            $stampBigger = imagecreatetruecolor($newwidth, $newheight);
+            imagealphablending($stampBigger, false);
+            imagesavealpha($stampBigger,true);
+
+
+// Resize
+            imagecopyresized($stampBigger, $stamp, 0, 0, 0, 0, $newwidth, $newheight, $width, $height);
+
+            $marge_right = 10;
+            $marge_bottom = 10;
+            $sx = imagesx($stampBigger);
+            $sy = imagesy($stampBigger);
+
+            // Copy the stamp image onto our photo using the margin offsets and the photo
+            // width to calculate positioning of the stamp.
+            imagecopy($im, $stampBigger, imagesx($im) - $sx - $marge_right, imagesy($im) - $sy - $marge_bottom, 0, 0, imagesx($stampBigger), imagesy($stampBigger));
+        }
+
+
+        // Set the margins for the stamp and get the height/width of the stamp image
+
+
         $writeFunc($dstR,$destSrc,$imageQuality);
     }
 }
