@@ -364,7 +364,6 @@ class UploadController extends Controller
 
 
 // Get new sizes
-
         if(!$thumb){
             // Load the watermark and the photo to apply the watermark to
             $fileLocator = $this->get('file_locator');
@@ -373,22 +372,32 @@ class UploadController extends Controller
             $im = $dstR;
             list($width, $height) = getimagesize($path);
             list($widthImage, $heightImage) = getimagesize($imgSrc);
-            $newwidth = $widthImage / 3.5;
-            $newheight = $heightImage / 10;
 
+            // $newHeight = $heightImage / 10;
+            // $newwidth = $newHeight * 160 / 30;
+
+            $newwidth = $widthImage / 5;
+            $newHeight = $newwidth * 30 /160;
+
+
+
+            // var_dump($heightImage); die;
 // Load
-            $stampBigger = imagecreatetruecolor($newwidth, $newheight);
+            $stampBigger = imagecreatetruecolor($newwidth, $newHeight);
             imagealphablending($stampBigger, false);
             imagesavealpha($stampBigger,true);
 
 
 // Resize
-            imagecopyresized($stampBigger, $stamp, 0, 0, 0, 0, $newwidth, $newheight, $width, $height);
+            imagecopyresized($stampBigger, $stamp, 0, 0, 0, 0, $newwidth, $newHeight, $width, $height);
 
             $marge_right = 10;
             $marge_bottom = 10;
             $sx = imagesx($stampBigger);
             $sy = imagesy($stampBigger);
+
+            //  var_dump($sy); die;
+
 
             // Copy the stamp image onto our photo using the margin offsets and the photo
             // width to calculate positioning of the stamp.
